@@ -25,35 +25,38 @@ class AuthController extends Controller
         $credentials = [
             'name' => $request->name,
             'email' => $request->email,
-            'password' => Hash::make($request->password)
+            'password' => $request->password
         ];
 
         // Check if the user already exists
-        if (!Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
-
-            // Create the user
-            $user = User::create($credentials);
-
-            // Directly log in the user
-            Auth::login($user);
-
-            // Create tokens with different scopes
-            $token = $user->createToken('admin-token', ['create', 'update', 'delete']);
-            // $updateToken = $user->createToken('update-token', ['create', 'update']);
-            // $basicToken = $user->createToken('basic-token',);
-
-            // Prepare response data
-            $res = [
-                'user' => $user,
-                'admin' => $token->plainTextToken,
-                // 'update' => $updateToken->plainTextToken,
-                // 'basic' => $basicToken->plainTextToken
-            ];
-
-            return $this->success($res, "User Created", 200);
-        } else {
+        if (User::where('email', $credentials['email'])->exists()) {
             return $this->success([], "User already exists", 200);
         }
+
+        // Create the user
+        $user = User::create([
+            'name' => $credentials['name'],
+            'email' => $credentials['email'],
+            'password' => Hash::make($credentials['password']),
+        ]);
+
+        // Directly log in the user
+        Auth::login($user);
+
+        // Create tokens with different scopes
+        $token = $user->createToken('admin-token', ['create', 'update', 'delete']);
+        // $updateToken = $user->createToken('update-token', ['create', 'update']);
+        // $basicToken = $user->createToken('basic-token', []);
+
+        // Prepare response data
+        $res = [
+            'user' => $user,
+            'admin' => $token->plainTextToken,
+            // 'update' => $updateToken->plainTextToken,
+            // 'basic' => $basicToken->plainTextToken
+        ];
+
+        return $this->success($res, "User Created", 200);
     }
 
     public function login(LoginUserRequest $request)
@@ -66,9 +69,10 @@ class AuthController extends Controller
         if (!Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
             return $this->error("", "Credentials doesn't exist", 401);
         }
-        $user = User::where('email', $request->email)->first();
-        Auth::login($user);
+        // Retrieve the authenticated user
+        $user = Auth::user();
 
+        // Create tokens with different scopes
         $token = $user->createToken('admin-token', ['create', 'update', 'delete']);
 
         // Prepare response data
