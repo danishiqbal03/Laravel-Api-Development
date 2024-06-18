@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Requests\V1\LoginUserRequest;
 use App\Http\Requests\V1\StoreUserRequest;
 use App\Models\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use App\Traits\HttpResponses;
 
 class AuthController extends Controller
@@ -23,7 +25,7 @@ class AuthController extends Controller
         $credentials = [
             'name' => $request->name,
             'email' => $request->email,
-            'password' => $request->password,
+            'password' => Hash::make($request->password)
         ];
 
         // Check if the user already exists
@@ -54,37 +56,30 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
+    public function login(LoginUserRequest $request)
     {
-        //
-    }
+        $credentials = [
+            'email' => $request->email,
+            'password' => $request->password
+        ];
+        // Check if the user already exists
+        if (!Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
+            return $this->error("", "Credentials doesn't exist", 401);
+        }
+        $user = User::where('email', $request->email)->first();
+        Auth::login($user);
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
+        $token = $user->createToken('admin-token', ['create', 'update', 'delete']);
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
+        // Prepare response data
+        $res = [
+            'user' => $user,
+            'admin' => $token->plainTextToken,
+            // 'update' => $updateToken->plainTextToken,
+            // 'basic' => $basicToken->plainTextToken
+        ];
+
+        return $this->success($res, "User Logged-in", 200);
+
     }
 }
